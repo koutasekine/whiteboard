@@ -12,16 +12,16 @@
   #bar button { height:28px; padding:0 8px; border:1px solid var(--line); background:#fff; border-radius:4px; cursor:pointer; font-size:13px; white-space:nowrap; }
   #bar button.sel { outline:2px solid #3b82f6; }
   .sw { width:28px; padding:0 !important; }
-  .sw span { display:block; width:18px; height:18px; margin:auto; border-radius:50%; }
+  .sw span { display:block; width:18px; height:18px; margin:auto; border-radius:50%; border:1px solid rgba(0,0,0,.35); box-sizing:border-box; }
   #bar .sep { width:1px; height:22px; background:var(--line); margin:0 2px; flex:none; }
   #bar label { font-size:12px; display:flex; align-items:center; gap:3px; white-space:nowrap; }
   #bar input[type=range] { width:70px; }
   #bar select { height:28px; max-width:150px; font-size:13px; }
-  #bmenu-pop { display:none; position:fixed; background:#fff; border:1px solid var(--line); border-radius:4px;
+  .pop { display:none; position:fixed; background:#fff; border:1px solid var(--line); border-radius:4px;
                box-shadow:0 2px 8px rgba(0,0,0,.15); padding:4px; z-index:20; min-width:160px; }
-  #bmenu-pop.open { display:block; }
-  #bmenu-pop button { display:block; width:100%; text-align:left; border:none; background:none; height:30px; padding:0 10px; }
-  #bmenu-pop button:hover { background:#eee; }
+  .pop.open { display:block; }
+  .pop button { display:block; width:100%; text-align:left; border:none; background:none; height:30px; padding:0 10px; }
+  .pop button:hover { background:#eee; }
   #bmenu-pop #bdel { color:#b00; }
   #c { position:fixed; top:40px; left:0; touch-action:none; cursor:crosshair; }
   #c.pen, #c.erase { cursor:none; }
@@ -37,41 +37,46 @@
 </head>
 <body>
 <div id="bar">
-  <button class="sw" data-color="#000000" title="黒 (1)"><span style="background:#000"></span></button>
-  <button class="sw" data-color="#d00000" title="赤 (2)"><span style="background:#d00000"></span></button>
-  <button class="sw" data-color="#0050d0" title="青 (3)"><span style="background:#0050d0"></span></button>
+  <button class="sw" data-color="#000000" title="黒/白 (1)"><span></span></button>
+  <button class="sw" data-color="#e8502a" title="赤 (2)"><span></span></button>
+  <button class="sw" data-color="#f0c020" title="黄 (3)"><span></span></button>
+  <button class="sw" data-color="#0050d0" title="青 (4)"><span></span></button>
   <button id="eraser" title="消しゴム (E): 触れた線を消す。ペンの側面ボタンを押しながら描いても消せる">消しゴム</button>
   <button id="hand" title="移動 (H) / Space+ドラッグ / 中ボタン / 右ドラッグ。画像の上でドラッグすると画像を移動、四隅のハンドルで拡大縮小、Delete で削除">移動</button>
   <span class="sep"></span>
   <label>太さ <input id="width" type="range" min="1" max="30" value="3"><span id="wv">3</span></label>
   <span class="sep"></span>
-  <button id="undo" title="Ctrl+Z">戻す</button>
-  <button id="redo" title="Ctrl+Y">進む</button>
+  <button id="undo" title="元に戻す (Ctrl+Z)">←</button>
+  <button id="redo" title="やり直し (Ctrl+Y)">→</button>
   <button id="clear">全消去</button>
   <span class="sep"></span>
   <button id="home" title="原点へ戻り倍率 100% (0)">原点</button>
   <button id="fit" title="全体を表示 (F)">全体</button>
   <span class="sep"></span>
-  <button id="save">PNG</button>
-  <button id="savej" title="後で続きを描けるように JSON で保存">JSON 保存</button>
-  <button id="loadj">JSON 読込</button>
+  <button id="smenu" title="保存形式を選ぶ">保存 ▾</button>
+  <button id="loadj" title="JSON を新しいボードとして読み込む">JSON 読込</button>
   <input id="file" type="file" accept=".json" style="display:none">
   <span class="sep"></span>
   <label><select id="boardsel" title="ボードの切替"></select></label>
   <button id="bnew" title="新しいボードを追加">＋</button>
   <button id="bmenu" title="ボードの操作(名前変更・削除)">▾</button>
   <span class="sep"></span>
-  <label><input id="dark" type="checkbox" checked> 黒板モード</label>
+  <label title="チェックすると白い背景(ホワイトボード)、外すと黒板"><input id="white" type="checkbox"> 白板</label>
 </div>
-<div id="bmenu-pop">
+<div id="bmenu-pop" class="pop">
   <button id="brename">名前を変更…</button>
   <button id="bdel">このボードを削除…</button>
+</div>
+<div id="smenu-pop" class="pop">
+  <button id="save">PNG 画像</button>
+  <button id="savesvg">SVG 画像(ベクトル)</button>
+  <button id="savej">JSON(編集用データ)</button>
 </div>
 <canvas id="c"></canvas>
 <div id="cursor"></div>
 <div id="zoom">100%</div>
 <div id="status"></div>
-<div id="hint">ホイール: ズーム  Space/中/右ドラッグ: 移動  1/2/3: 色  E / ペン側面ボタン: 消しゴム  H: 移動  Ctrl+V: 画像貼付  Ctrl+Z/Y</div>
+<div id="hint">ホイール: ズーム  Space/中/右ドラッグ: 移動  1/2/3/4: 色  E / ペン側面ボタン: 消しゴム  H: 移動  Ctrl+V: 画像貼付  Ctrl+Z/Y</div>
 <script>
 (() => {
   const c = document.getElementById('c'); let ctx = c.getContext('2d');
@@ -91,7 +96,20 @@
   let W = 0, H = 0;
 
   const bg = () => dark ? '#2f5a3c' : '#ffffff';
-  const strokeColor = col => (dark && col === '#000000') ? '#f2f2f2' : col;  // 黒板では黒→白
+  // 色はデータ上の 4 種(キー)で保存し、表示色を黒板/白板で切り替える。
+  // 表示色は色覚多様性(P 型・D 型)を考慮して、背景とのコントラストと色同士の輝度差を確保した値
+  const PALETTE = [
+    { key:'#000000', chalk:'#f2f2f2', white:'#000000' },   // 黒(黒板では白)
+    { key:'#e8502a', chalk:'#ff7046', white:'#d42040' },   // 赤(黒板では明るい朱赤 — eye チョークに倣う、白板では深紅)
+    { key:'#f0c020', chalk:'#f8e070', white:'#d08a00' },   // 黄(黒板では明るく淡い黄 — 朱赤と輝度差をつける、白板では金)
+    { key:'#0050d0', chalk:'#5aa9ff', white:'#0066cc' },   // 青(黒板では明るい青)
+  ];
+  const LEGACY = { '#d00000':'#e8502a' };   // 旧版のデータ色
+  function strokeColor(col) {
+    const k = LEGACY[col] || col; const pal = PALETTE.find(p => p.key === k);
+    return pal ? (dark ? pal.chalk : pal.white) : col;
+  }
+  function updateSwatches() { document.querySelectorAll('.sw').forEach(b => { b.firstElementChild.style.background = strokeColor(b.dataset.color); }); }
 
   function resize() {
     const bh = document.getElementById('bar').offsetHeight; c.style.top = bh + 'px';
@@ -174,7 +192,7 @@
   function applyData(d) {
     strokes = (d && Array.isArray(d.strokes)) ? d.strokes : [];
     images = (d && Array.isArray(d.images)) ? d.images : [];
-    dark = !!(d && d.dark); document.getElementById('dark').checked = dark;
+    dark = !!(d && d.dark); document.getElementById('white').checked = !dark; updateSwatches();
     view = (d && d.view) ? d.view : { x:0, y:0, s:1 };
     selImg = null; cur = null; undoStack = []; redoStack = [];
   }
@@ -424,13 +442,18 @@
     const name = prompt('新しいボードの名前', defaultName()); if (name === null) return;
     addBoard(name.trim() || defaultName());
   });
-  const bpop = document.getElementById('bmenu-pop');
-  document.getElementById('bmenu').addEventListener('click', e => {
-    e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect();
-    bpop.style.left = r.left + 'px'; bpop.style.top = (r.bottom + 2) + 'px'; bpop.classList.toggle('open');
-  });
-  document.addEventListener('pointerdown', e => { if (!bpop.contains(e.target) && e.target.id !== 'bmenu') bpop.classList.remove('open'); });
-  bpop.addEventListener('click', () => bpop.classList.remove('open'));
+  // ---- プルダウンメニュー(ボード操作・保存) ----
+  function setupMenu(btnId, popId) {
+    const btn = document.getElementById(btnId), pop = document.getElementById(popId);
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); const r = btn.getBoundingClientRect();
+      document.querySelectorAll('.pop.open').forEach(x => { if (x !== pop) x.classList.remove('open'); });
+      pop.style.left = r.left + 'px'; pop.style.top = (r.bottom + 2) + 'px'; pop.classList.toggle('open');
+    });
+    document.addEventListener('pointerdown', e => { if (!pop.contains(e.target) && e.target !== btn) pop.classList.remove('open'); });
+    pop.addEventListener('click', () => pop.classList.remove('open'));
+  }
+  setupMenu('bmenu', 'bmenu-pop'); setupMenu('smenu', 'smenu-pop');
   document.getElementById('brename').addEventListener('click', () => {
     const b = boards.find(b => b.id===curId); if (!b) return;
     const name = prompt('ボードの名前', b.name); if (name === null || !name.trim()) return;
@@ -475,6 +498,37 @@
     download(`whiteboard_${stamp()}.png`, oc.toDataURL('image/png'));
   });
 
+  document.getElementById('savesvg').addEventListener('click', () => {   // 描画範囲全体を SVG に(ベクトル)
+    const b = bbox(); if (!b) return alert('何も描かれていません');
+    const f = n => (Math.round(n*100)/100).toString();
+    const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    const W0 = b.x1-b.x0, H0 = b.y1-b.y0;
+    const out = [];
+    out.push(`<?xml version="1.0" encoding="UTF-8"?>`);
+    out.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${f(W0)}" height="${f(H0)}" viewBox="${f(b.x0)} ${f(b.y0)} ${f(W0)} ${f(H0)}">`);
+    out.push(`<rect x="${f(b.x0)}" y="${f(b.y0)}" width="${f(W0)}" height="${f(H0)}" fill="${bg()}"/>`);
+    for (const m of images)
+      out.push(`<image x="${f(m.x)}" y="${f(m.y)}" width="${f(m.w)}" height="${f(m.h)}" preserveAspectRatio="none" xlink:href="${esc(m.src)}"/>`);
+    out.push(`<g fill="none" stroke-linecap="round" stroke-linejoin="round">`);
+    for (const st of strokes) {
+      const pts = st.pts; if (!pts.length) continue;
+      const col = strokeColor(st.color);
+      const ws = pts.map(q => st.width*pw(q.p));
+      const uniform = ws.every(w => Math.abs(w-ws[0]) < 1e-9);
+      if (pts.length === 1 || uniform) {
+        const d = pts.length === 1 ? `M${f(pts[0].x)} ${f(pts[0].y)}l0.01 0` : 'M' + pts.map(q => `${f(q.x)} ${f(q.y)}`).join('L');
+        out.push(`<path d="${d}" stroke="${col}" stroke-width="${f(ws[0])}"/>`);
+      } else {   // 筆圧で太さが変わる場合は線分ごとに出力
+        out.push(`<g stroke="${col}">`);
+        for (let i=1;i<pts.length;i++) out.push(`<path d="M${f(pts[i-1].x)} ${f(pts[i-1].y)}L${f(pts[i].x)} ${f(pts[i].y)}" stroke-width="${f(ws[i])}"/>`);
+        out.push(`</g>`);
+      }
+    }
+    out.push(`</g></svg>`);
+    const bname = boards.find(x => x.id===curId); const safe = (bname ? bname.name : 'whiteboard').replace(/[\\/:*?"<>|]/g, '_');
+    download(`${safe}_${stamp()}.svg`, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(out.join('\n')));
+  });
+
   document.getElementById('savej').addEventListener('click', () => {
     const b = boards.find(b => b.id===curId); const safe = (b ? b.name : 'whiteboard').replace(/[\\/:*?"<>|]/g, '_');
     const data = JSON.stringify({ v:2, name: b ? b.name : '', dark, view, strokes, images: images.map(stripImg) });
@@ -494,7 +548,7 @@
       if (id) setStatus('「' + name + '」を新しいボードとして読み込みました');
     }).catch(() => alert('読み込めませんでした')).finally(() => { fi.value=''; });
   });
-  document.getElementById('dark').addEventListener('change', e => { dark=e.target.checked; redraw(); autosave(); });
+  document.getElementById('white').addEventListener('change', e => { dark=!e.target.checked; updateSwatches(); redraw(); autosave(); });
 
   // ---- 画像の貼り付け(Ctrl+V)/ ドロップ ----
   function addImageFromBlob(blob, sx, sy) {
@@ -537,8 +591,9 @@
     if (e.ctrlKey && e.key.toLowerCase()==='y') { e.preventDefault(); redo(); return; }
     if (e.code==='Space') { e.preventDefault(); if (!spaceDown) { spaceDown=true; c.classList.add('pan'); curEl.className=''; } return; }
     if (e.key==='1') selectColor('#000000');
-    if (e.key==='2') selectColor('#d00000');
-    if (e.key==='3') selectColor('#0050d0');
+    if (e.key==='2') selectColor('#e8502a');
+    if (e.key==='3') selectColor('#f0c020');
+    if (e.key==='4') selectColor('#0050d0');
     if (e.key.toLowerCase()==='e') setTool('eraser');
     if (e.key.toLowerCase()==='h') setTool('hand');
     if (e.key==='0') { view={x:0,y:0,s:1}; redraw(); }
