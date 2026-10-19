@@ -11,15 +11,13 @@ HTML ファイル 1 つで完結する、手描き専用のホワイトボード
 
 ## 使い方
 
+### Web 版
+
+<https://board.sapp.jp> を開くだけで使えます。描いた内容はサーバーに送られず、利用者のブラウザ内にだけ保存されます。共同編集機能はありません。
+
 ### ローカルで使う
 
-`whiteboard.html` をダブルクリックして Edge / Chrome / Safari / Firefox で開きます。通信は一切行いません。
-
-### Web に置いて使う(GitHub Pages など)
-
-静的ファイルなので、GitHub Pages や任意の Web サーバーに `whiteboard.html` を置くだけで動きます。描いた内容はサーバーに送られず、各利用者のブラウザ内にだけ保存されます。共同編集機能はありません。
-
-画像の貼り付け(Ctrl+V)を確実に動かすため、HTTPS での配信を推奨します(GitHub Pages は自動的に HTTPS です)。
+`whiteboard.html` をダウンロードし、ダブルクリックして Edge / Chrome / Safari / Firefox で開きます。通信は一切行いません。
 
 ## 操作
 
@@ -93,7 +91,7 @@ HTML ファイル 1 つで完結する、手描き専用のホワイトボード
 
 1. 講義後に「保存 ▾ → JSON」で板書を保存する。
 2. JSON を学生に配る(LMS、メール、または Web サーバーに置く)。
-3. 学生は Web 上の `whiteboard.html` を開き、「JSON 読込」で板書を開き、自分のメモを書き足す。追記は学生自身のブラウザに自動保存される。
+3. 学生は <https://board.sapp.jp> を開き、「JSON 読込」で板書を開き、自分のメモを書き足す。追記は学生自身のブラウザに自動保存される。
 
 学生の追記が配布元の JSON や他の学生に影響することはありません。
 
@@ -112,7 +110,7 @@ HTML ファイル 1 つで完結する、手描き専用のホワイトボード
 
 ## 動作環境
 
-Pointer Events と Canvas に対応したブラウザ(Edge、Chrome、Safari、Firefox の最近の版)。Windows + Wacom、iPad + Apple Pencil、Mac + Safari で動作を確認しています。外部ライブラリ・外部リソースの読み込みはありません。
+Pointer Events と Canvas に対応したブラウザ(Edge、Chrome、Safari、Firefox の最近の版)。Windows + Wacom ペンタブレット、Mac + Safari で動作を確認しています。外部ライブラリ・外部リソースの読み込みはありません。
 
 ## ライセンス
 
