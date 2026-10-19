@@ -16,7 +16,6 @@
   #bar .sep { width:1px; height:24px; background:var(--line); margin:0 4px; flex:none; }
   #bar label { font-size:13px; display:flex; align-items:center; gap:4px; white-space:nowrap; }
   #bar input[type=range] { width:80px; }
-  #bar select { height:30px; max-width:180px; font-size:14px; }
   #c { position:fixed; top:44px; left:0; touch-action:none; cursor:crosshair; }
   #c.pen, #c.erase { cursor:none; }
   #c.pan { cursor:grab; }
@@ -35,18 +34,14 @@
   <button class="sw" data-color="#d00000" title="赤 (2)"><span style="background:#d00000"></span></button>
   <button class="sw" data-color="#0050d0" title="青 (3)"><span style="background:#0050d0"></span></button>
   <button id="eraser" title="消しゴム (E): 触れた線を消す。ペンの側面ボタンを押しながら描いても消せる">消しゴム</button>
-  <button id="hand" title="移動 (H) / Space+ドラッグ / 中ボタン / 右ドラッグ。画像の上でドラッグすると画像を移動、四隅のハンドルで拡大縮小、Delete で削除">移動</button>
+  <button id="hand" title="移動 (H) / Space+ドラッグ / 中ボタン / 右ドラッグ。画像の上でドラッグすると画像を移動、Delete で削除">移動</button>
   <span class="sep"></span>
   <label>太さ <input id="width" type="range" min="1" max="30" value="3"><span id="wv">3</span></label>
   <span class="sep"></span>
   <button id="undo" title="Ctrl+Z">元に戻す</button>
   <button id="redo" title="Ctrl+Y">やり直し</button>
   <button id="clear">全消去</button>
-  <span class="sep"></span>
-  <label>ボード <select id="boardsel" title="ボードの切替"></select></label>
-  <button id="bnew" title="新しいボードを追加">＋</button>
-  <button id="brename" title="このボードの名前を変更">名前</button>
-  <button id="bdel" title="このボードを削除(元に戻せません)">削除</button>
+  <button id="new" title="保存済みの内容を消して新しいボードにする">新規</button>
   <button id="home" title="原点へ戻り倍率 100% (0)">原点</button>
   <button id="fit" title="全体を表示 (F)">全体</button>
   <span class="sep"></span>
@@ -110,12 +105,6 @@
     if (!im.img) { const i = new Image(); i.onload = () => redraw(); i.src = im.src; im.img = i; }
     if (im.img.complete && im.img.naturalWidth) ctx.drawImage(im.img, im.x, im.y, im.w, im.h);
   }
-  const HANDLE = 12;   // ハンドルの大きさ(画面 px)
-  const corners = m => [[m.x,m.y],[m.x+m.w,m.y],[m.x,m.y+m.h],[m.x+m.w,m.y+m.h]];   // 0:左上 1:右上 2:左下 3:右下
-  function handleAt(m, wx, wy) {   // 選択中画像の四隅ハンドルに当たっていればその番号
-    if (!m) return -1; const r = (HANDLE/2 + 3)/view.s;
-    const cs = corners(m); for (let i=0;i<4;i++) if (Math.abs(wx-cs[i][0])<=r && Math.abs(wy-cs[i][1])<=r) return i; return -1;
-  }
   function imageAt(wx, wy) { for (let i=images.length-1;i>=0;i--) { const m=images[i]; if (wx>=m.x && wx<=m.x+m.w && wy>=m.y && wy<=m.y+m.h) return m; } return null; }
   function pw(p) { return (p === undefined || p === 0 || p === 0.5) ? 1 : 0.4 + 1.2*p; }
 
@@ -129,12 +118,8 @@
     for (const im of images) drawImage(im);
     for (const st of strokes) drawStroke(st);
     if (cur && cur.pts) drawStroke(cur);
-    if (selImg && images.includes(selImg)) {
-      ctx.strokeStyle='#3b82f6'; ctx.lineWidth=2/view.s; ctx.setLineDash([6/view.s,4/view.s]);
-      ctx.strokeRect(selImg.x, selImg.y, selImg.w, selImg.h); ctx.setLineDash([]);
-      const hs = HANDLE/view.s; ctx.fillStyle='#fff'; ctx.lineWidth=1.5/view.s;
-      for (const [hx,hy] of corners(selImg)) { ctx.beginPath(); ctx.rect(hx-hs/2, hy-hs/2, hs, hs); ctx.fill(); ctx.stroke(); }
-    }
+    if (selImg && images.includes(selImg)) { ctx.strokeStyle='#3b82f6'; ctx.lineWidth=2/view.s; ctx.setLineDash([6/view.s,4/view.s]);
+      ctx.strokeRect(selImg.x, selImg.y, selImg.w, selImg.h); ctx.setLineDash([]); }
     document.getElementById('zoom').textContent = Math.round(view.s*100)+'%';
   }
   function drawGrid() {   // 薄い点グリッド(位置感覚用)
@@ -145,61 +130,27 @@
     for (let x=x0; x<W; x+=g) for (let y=y0; y<H; y+=g) ctx.fillRect(x-0.75, y-0.75, 1.5, 1.5);
   }
 
-  // ---- 複数ボード + 自動保存(このブラウザ内に保持。開き直すと復元) ----
-  // 索引: INDEX = {boards:[{id,name}], current:id}   各ボード: DATA(id) = {v, dark, view, strokes, images, t}
-  const INDEX = 'whiteboard.boards.v2', DATA = id => 'whiteboard.board.v2.' + id, OLDKEY = 'whiteboard.autosave.v1';
-  let boards = [], curId = null;
+  // ---- 自動保存(このブラウザ内に保持。開き直すと復元) ----
+  const KEY = 'whiteboard.autosave.v1';
   let saveTimer = null;
-  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-  function saveIndex() { localStorage.setItem(INDEX, JSON.stringify({ boards, current: curId })); }
-  function snapshot() { return { v:2, dark, view, strokes, images: images.map(stripImg), t:Date.now() }; }
-  function saveNow() {
-    clearTimeout(saveTimer); saveTimer = null;
-    if (!curId) return;
-    try { localStorage.setItem(DATA(curId), JSON.stringify(snapshot())); saveIndex(); setStatus('自動保存 ' + new Date().toLocaleTimeString()); }
-    catch (e) { setStatus('自動保存に失敗(容量超過の可能性)。JSON 保存で退避し、不要なボードを削除してください'); }
-  }
-  function autosave() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400); }
-  function applyData(d) {
-    strokes = (d && Array.isArray(d.strokes)) ? d.strokes : [];
-    images = (d && Array.isArray(d.images)) ? d.images : [];
-    dark = !!(d && d.dark); document.getElementById('dark').checked = dark;
-    view = (d && d.view) ? d.view : { x:0, y:0, s:1 };
-    selImg = null; cur = null; undoStack = []; redoStack = [];
-  }
-  function loadBoard(id) {
-    let d = null; try { d = JSON.parse(localStorage.getItem(DATA(id)) || 'null'); } catch (e) {}
-    curId = id; applyData(d); saveIndex(); renderBoardList(); redraw();
-  }
-  function switchBoard(id) { if (id === curId) return; saveNow(); loadBoard(id); const b = boards.find(b => b.id===id); setStatus('ボード「' + (b ? b.name : '') + '」を開きました'); }
-  function addBoard(name, data) {
-    if (curId) saveNow();
-    const id = newId(); boards.push({ id, name });
-    try { localStorage.setItem(DATA(id), JSON.stringify(Object.assign({ v:2, dark:false, view:{x:0,y:0,s:1}, strokes:[], images:[], t:Date.now() }, data || {}))); }
-    catch (e) { boards.pop(); alert('保存容量が足りません。不要なボードを削除してください'); return null; }
-    loadBoard(id); return id;
-  }
-  function defaultName() { let n = boards.length + 1; while (boards.some(b => b.name === 'ボード ' + n)) n++; return 'ボード ' + n; }
-  function renderBoardList() {
-    const sel = document.getElementById('boardsel'); sel.innerHTML = '';
-    for (const b of boards) { const o = document.createElement('option'); o.value = b.id; o.textContent = b.name; if (b.id===curId) o.selected = true; sel.appendChild(o); }
-    document.title = (boards.find(b => b.id===curId) || {name:'Whiteboard'}).name + ' - Whiteboard';
+  function autosave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ v:1, dark, view, strokes, images: images.map(stripImg), t:Date.now() }));
+        setStatus('自動保存 ' + new Date().toLocaleTimeString());
+      } catch (e) { setStatus('自動保存に失敗(容量超過の可能性)。JSON 保存を使ってください'); }
+    }, 400);
   }
   function restore() {
-    let idx = null; try { idx = JSON.parse(localStorage.getItem(INDEX) || 'null'); } catch (e) {}
-    if (idx && Array.isArray(idx.boards) && idx.boards.length) {
-      boards = idx.boards;
-      const id = boards.some(b => b.id===idx.current) ? idx.current : boards[0].id;
-      loadBoard(id);
-      setStatus('前回の内容を復元');
-      return;
-    }
-    // 旧形式(単一ボード)からの移行
-    let old = null; try { old = JSON.parse(localStorage.getItem(OLDKEY) || 'null'); } catch (e) {}
-    if (old && Array.isArray(old.strokes)) {
-      addBoard('ボード 1', old); localStorage.removeItem(OLDKEY); setStatus('前回の内容を「ボード 1」として復元'); return;
-    }
-    addBoard('ボード 1');
+    try {
+      const d = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (d && Array.isArray(d.strokes)) {
+        strokes = d.strokes; images = d.images || []; dark = !!d.dark; document.getElementById('dark').checked = dark;
+        if (d.view) view = d.view;
+        setStatus('前回の内容を復元 (' + new Date(d.t).toLocaleString() + ')');
+      }
+    } catch (e) {}
   }
   const stripImg = m => ({ src:m.src, x:m.x, y:m.y, w:m.w, h:m.h });
   function setStatus(t) { document.getElementById('status').textContent = t; }
@@ -214,7 +165,6 @@
     else if (op.type==='img') images = images.filter(m => m !== op.image);
     else if (op.type==='imgdel') images.splice(op.index,0,op.image);
     else if (op.type==='imgmove') { op.image.x = op.from.x; op.image.y = op.from.y; }
-    else if (op.type==='imgresize') Object.assign(op.image, op.from);
     redoStack.push(op); redraw(); autosave();
   }
   function redo() {
@@ -225,7 +175,6 @@
     else if (op.type==='img') images.push(op.image);
     else if (op.type==='imgdel') images = images.filter(m => m !== op.image);
     else if (op.type==='imgmove') { op.image.x = op.to.x; op.image.y = op.to.y; }
-    else if (op.type==='imgresize') Object.assign(op.image, op.to);
     undoStack.push(op); redraw(); autosave();
   }
 
@@ -302,12 +251,7 @@
       return;
     }
     if (isPanBtn(e)) {
-      const w = toWorld(p.x,p.y);
-      if (tool==='hand' || spaceDown) {
-        const h = handleAt(selImg && images.includes(selImg) ? selImg : null, w.x, w.y);
-        if (h >= 0) { panState = { mode:'imgresize', img:selImg, corner:h, from:{x:selImg.x,y:selImg.y,w:selImg.w,h:selImg.h} }; return; }
-      }
-      const m = (tool==='hand' || spaceDown) ? imageAt(w.x,w.y) : null;
+      const w = toWorld(p.x,p.y), m = (tool==='hand' || spaceDown) ? imageAt(w.x,w.y) : null;
       if (m) { selImg = m; panState = { mode:'img', img:m, sx:p.x, sy:p.y, ox:m.x, oy:m.y }; redraw(); return; }
       if (selImg) { selImg = null; redraw(); }
       panState = { mode:'drag', sx:p.x, sy:p.y, vx:view.x, vy:view.y }; c.classList.add('pan'); return;
@@ -334,18 +278,6 @@
       redraw(); return;
     }
     if (panState && panState.mode==='drag') { view.x = panState.vx + p.x-panState.sx; view.y = panState.vy + p.y-panState.sy; redraw(); return; }
-    if (panState && panState.mode==='imgresize') {
-      const f = panState.from, m = panState.img, w = toWorld(p.x,p.y), asp = f.w/f.h;
-      // 固定する対角点
-      const ax = (panState.corner % 2 === 0) ? f.x + f.w : f.x;      // 左側のハンドルなら右端を固定
-      const ay = (panState.corner < 2) ? f.y + f.h : f.y;            // 上側のハンドルなら下端を固定
-      let nw = Math.abs(w.x - ax), nh = Math.abs(w.y - ay);
-      // 縦横比を保つ: ドラッグ量の大きい方に合わせる
-      if (nw/asp > nh) nh = nw/asp; else nw = nh*asp;
-      const minw = 16/view.s; if (nw < minw) { nw = minw; nh = nw/asp; }
-      m.w = nw; m.h = nh; m.x = (panState.corner % 2 === 0) ? ax - nw : ax; m.y = (panState.corner < 2) ? ay - nh : ay;
-      redraw(); return;
-    }
     if (panState && panState.mode==='img') { panState.img.x = panState.ox + (p.x-panState.sx)/view.s; panState.img.y = panState.oy + (p.y-panState.sy)/view.s; redraw(); return; }
     if (isPen(e)) {
       // 側面ボタン押下中に接触/離脱した場合(pointerdown/up は来ない)をここで扱う
@@ -367,7 +299,6 @@
   function end(e) {
     pointers.delete(e.pointerId);
     if (panState) {
-      if (panState.mode==='imgresize') { const m=panState.img, f=panState.from; if (m.w!==f.w || m.x!==f.x || m.y!==f.y) pushOp({type:'imgresize', image:m, from:f, to:{x:m.x,y:m.y,w:m.w,h:m.h}}); }
       if (panState.mode==='img') { const m=panState.img; if (m.x!==panState.ox || m.y!==panState.oy) pushOp({type:'imgmove', image:m, from:{x:panState.ox,y:panState.oy}, to:{x:m.x,y:m.y}}); }
       if (pointers.size===0) { panState=null; c.classList.remove('pan'); } else if (panState.mode==='pinch') panState=null; updateCursor(e); return; }
     finishStroke();
@@ -408,23 +339,9 @@
     if (!strokes.length && !images.length) return;
     pushOp({type:'clear', saved:strokes, savedImages:images}); strokes=[]; images=[]; selImg=null; redraw();
   });
-  document.getElementById('boardsel').addEventListener('change', e => switchBoard(e.target.value));
-  document.getElementById('bnew').addEventListener('click', () => {
-    const name = prompt('新しいボードの名前', defaultName()); if (name === null) return;
-    addBoard(name.trim() || defaultName());
-  });
-  document.getElementById('brename').addEventListener('click', () => {
-    const b = boards.find(b => b.id===curId); if (!b) return;
-    const name = prompt('ボードの名前', b.name); if (name === null || !name.trim()) return;
-    b.name = name.trim(); saveIndex(); renderBoardList();
-  });
-  document.getElementById('bdel').addEventListener('click', () => {
-    const b = boards.find(b => b.id===curId); if (!b) return;
-    if (!confirm('ボード「' + b.name + '」を削除します。元に戻せません(必要なら先に JSON 保存してください)。よろしいですか?')) return;
-    clearTimeout(saveTimer); saveTimer = null;
-    localStorage.removeItem(DATA(curId)); boards = boards.filter(x => x.id !== curId); curId = null;
-    if (boards.length) loadBoard(boards[0].id); else addBoard('ボード 1');
-    setStatus('ボード「' + b.name + '」を削除しました');
+  document.getElementById('new').addEventListener('click', () => {
+    if ((strokes.length || images.length) && !confirm('現在の内容を消して新しいボードにします。よろしいですか?(必要なら先に JSON 保存してください)')) return;
+    strokes=[]; images=[]; selImg=null; undoStack=[]; redoStack=[]; view={x:0,y:0,s:1}; redraw(); autosave();
   });
   document.getElementById('home').addEventListener('click', () => { view={x:0,y:0,s:1}; redraw(); });
 
@@ -458,9 +375,8 @@
   });
 
   document.getElementById('savej').addEventListener('click', () => {
-    const b = boards.find(b => b.id===curId); const safe = (b ? b.name : 'whiteboard').replace(/[\\/:*?"<>|]/g, '_');
-    const data = JSON.stringify({ v:2, name: b ? b.name : '', dark, view, strokes, images: images.map(stripImg) });
-    download(`${safe}_${stamp()}.json`, 'data:application/json;charset=utf-8,'+encodeURIComponent(data));
+    const data = JSON.stringify({ v:1, dark, view, strokes, images: images.map(stripImg) });
+    download(`whiteboard_${stamp()}.json`, 'data:application/json;charset=utf-8,'+encodeURIComponent(data));
   });
   const fi = document.getElementById('file');
   document.getElementById('loadj').addEventListener('click', () => fi.click());
@@ -469,11 +385,9 @@
     f.text().then(t => {
       const d = JSON.parse(t);
       if (!Array.isArray(d.strokes)) throw 0;
-      // 新しいボードとして追加(今のボードは残る)
-      let name = (d.name && String(d.name).trim()) || f.name.replace(/\.json$/i, '');
-      while (boards.some(b => b.name === name)) name += ' (2)';
-      const id = addBoard(name, { dark: !!d.dark, view: d.view || {x:0,y:0,s:1}, strokes: d.strokes, images: d.images || [] });
-      if (id) setStatus('「' + name + '」を新しいボードとして読み込みました');
+      if (strokes.length || images.length) pushOp({type:'clear', saved:strokes, savedImages:images});
+      strokes = d.strokes; images = d.images || []; selImg = null; dark = !!d.dark; document.getElementById('dark').checked = dark;
+      if (d.view) view = d.view; redraw(); autosave();
     }).catch(() => alert('読み込めませんでした')).finally(() => { fi.value=''; });
   });
   document.getElementById('dark').addEventListener('change', e => { dark=e.target.checked; redraw(); autosave(); });
@@ -491,7 +405,7 @@
         const cpt = (sx!==undefined) ? toWorld(sx,sy) : toWorld(W/2, H/2);
         const m = { src: fr.result, x: cpt.x - w/2, y: cpt.y - h/2, w, h, img };
         images.push(m); selImg = m; pushOp({type:'img', image:m}); redraw();
-        setStatus('画像を貼り付けました(移動ツールでドラッグして移動、四隅のハンドルで拡大縮小、Delete で削除)');
+        setStatus('画像を貼り付けました(移動ツールでドラッグして移動、Delete で削除)');
       };
       img.src = fr.result;
     };
