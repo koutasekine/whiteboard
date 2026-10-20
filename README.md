@@ -17,7 +17,7 @@ HTML ファイル 1 つで完結する、手描き専用のホワイトボード
 
 ### ローカルで使う
 
-`whiteboard.html` をダウンロードし、ダブルクリックして Edge / Chrome / Safari / Firefox で開きます。通信は一切行いません。
+`index.html` をダウンロードし、ダブルクリックして Edge / Chrome / Safari / Firefox で開きます。通信は一切行いません。
 
 ## 操作
 
