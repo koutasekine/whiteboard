@@ -1,3 +1,28 @@
+このリポジトリには、ライセンスの異なる 4 つの部分があります。
+
+1. プログラム(index.html の HTML・CSS・JavaScript。下記 2〜4 を除く)
+   MIT License(本文は下記)
+   Copyright (c) 2026 Kouta Sekine
+
+2. 配色「えんじ」とその色違いの「紫紺」「ペールブルー」のデザイン
+   対象:えんじ帯・線・ページ番号の箱などの配置と配色(index.html の .slide.enji に関する CSS が再現するもの)、
+         および index.html に埋め込まれた表紙の「2.71828」の画像
+   Copyright (c) Yuka Hiratsuka (formerly Yuka Sekine)
+   Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International (CC BY-NC-ND 4.0)
+   https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+3. 同梱の KaTeX(index.html に埋め込まれた katex.min.js・katex.min.css・フォント)
+   MIT License
+   Copyright (c) 2013-2020 Khan Academy and other contributors
+   KaTeX のライセンス本文は index.html 冒頭のコメントにあります。
+
+4. 同梱の Prism(index.html に埋め込まれたコード色付け用の prism-core と言語定義)
+   MIT License
+   Copyright (c) 2012 Lea Verou
+   Prism のライセンス本文は index.html 冒頭のコメントにあります。
+
+--------------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2026 Kouta Sekine
@@ -19,3 +44,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+The MIT License above does not apply to part 2 (the "えんじ" / "紫紺" / "ペールブルー" design and the
+"2.71828" image), which is licensed only under CC BY-NC-ND 4.0.
