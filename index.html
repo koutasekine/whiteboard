@@ -1,9 +1,35 @@
 <!DOCTYPE html>
+<!--
+<!--
+  黒板 — ブラウザだけで動く無限ホワイトボード/黒板(単一 HTML)
+  https://board.sapp.jp
+
+  MIT License
+  Copyright (c) 2026 Kouta Sekine
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+-->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Whiteboard</title>
+<title>黒板</title>
 <style>
   :root { --bar:#f2f2f2; --line:#cfcfcf; --fg:#222; }
   html,body { margin:0; height:100%; overflow:hidden; font-family:system-ui,sans-serif; color:var(--fg); }
@@ -30,9 +56,15 @@
             background-repeat:no-repeat; background-size:28px 28px; }
   #cursor.pen { display:block; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><g transform='rotate(45 14 14)'><rect x='11' y='2' width='6' height='16' rx='1' fill='%23f2b134' stroke='%23000' stroke-width='1'/><rect x='11' y='2' width='6' height='3' fill='%23e05a5a' stroke='%23000' stroke-width='1'/><path d='M11 18 L14 25 L17 18 Z' fill='%23f5deb3' stroke='%23000' stroke-width='1'/><path d='M13 22.5 L14 25 L15 22.5 Z' fill='%23000'/></g></svg>"); }
   #cursor.erase { display:block; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><g transform='rotate(-30 14 14)'><rect x='4' y='8' width='20' height='12' rx='2' fill='%23fff' stroke='%23000' stroke-width='1.2'/><rect x='4' y='8' width='8' height='12' rx='2' fill='%234a90e2' stroke='%23000' stroke-width='1.2'/></g><circle cx='14' cy='14' r='1.5' fill='%23000'/></svg>"); }
-  #hint { position:fixed; right:10px; bottom:6px; font-size:11px; color:#888; pointer-events:none; }
-  #zoom { position:fixed; left:10px; bottom:6px; font-size:11px; color:#888; pointer-events:none; }
-  #status { position:fixed; left:70px; bottom:6px; font-size:11px; color:#888; pointer-events:none; }
+  #foot { position:fixed; left:0; right:0; bottom:0; height:20px; background:var(--bar); border-top:1px solid var(--line);
+          font-size:11px; color:#777; display:flex; align-items:center; gap:14px; padding:0 10px; box-sizing:border-box; user-select:none; white-space:nowrap; overflow:hidden; }
+  #foot a { color:#777; }
+  #zoom { flex:none; }
+  #status { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; }
+  #hint { flex:none; color:#999; }
+  #credit { flex:none; }
+  body.fs #foot { display:none; }
+  @media (max-width: 1100px) { #hint { display:none; } }
 </style>
 </head>
 <body>
@@ -74,9 +106,12 @@
 </div>
 <canvas id="c"></canvas>
 <div id="cursor"></div>
-<div id="zoom">100%</div>
-<div id="status"></div>
-<div id="hint">ホイール: ズーム  Space/中/右ドラッグ: 移動  1/2/3/4: 色  E / ペン側面ボタン: 消しゴム  H: 移動  Ctrl+V: 画像貼付  Ctrl+Z/Y</div>
+<div id="foot">
+  <span id="zoom">100%</span>
+  <span id="status"></span>
+  <span id="hint">ホイール: ズーム  Space/中/右ドラッグ: 移動  1/2/3/4: 色  E / ペン側面ボタン: 消しゴム  H: 移動  Ctrl+V: 画像貼付  Ctrl+Z/Y</span>
+  <span id="credit">MIT License, &copy; 2026 Kouta Sekine · <a href="https://sapp.jp" target="_blank" rel="noopener">S Apps</a></span>
+</div>
 <script>
 (() => {
   const c = document.getElementById('c'); let ctx = c.getContext('2d');
@@ -113,13 +148,18 @@
   function updateSwatches() { document.querySelectorAll('.sw').forEach(b => { b.firstElementChild.style.background = strokeColor(b.dataset.color); }); }
 
   function resize() {
+    // 全画面(F11 や全画面 API)のときはフッタを隠して描画領域を広げる
+    const fs = !!document.fullscreenElement || (window.innerHeight >= screen.height && window.innerWidth >= screen.width);
+    document.body.classList.toggle('fs', fs);
     const bh = document.getElementById('bar').offsetHeight; c.style.top = bh + 'px';
-    W = window.innerWidth; H = window.innerHeight - bh;
+    const fh = fs ? 0 : document.getElementById('foot').offsetHeight;
+    W = window.innerWidth; H = window.innerHeight - bh - fh;
     c.style.width = W+'px'; c.style.height = H+'px';
     c.width = Math.round(W*dpr); c.height = Math.round(H*dpr);
     redraw();
   }
   window.addEventListener('resize', resize);
+  document.addEventListener('fullscreenchange', resize);
 
   const toWorld = (sx,sy) => ({ x:(sx - view.x)/view.s, y:(sy - view.y)/view.s });
 
@@ -272,7 +312,7 @@
   function renderBoardList() {
     const sel = document.getElementById('boardsel'); sel.innerHTML = '';
     for (const b of boards) { const o = document.createElement('option'); o.value = b.id; o.textContent = b.name; if (b.id===curId) o.selected = true; sel.appendChild(o); }
-    document.title = (boards.find(b => b.id===curId) || {name:'Whiteboard'}).name + ' - Whiteboard';
+    document.title = (boards.find(b => b.id===curId) || {name:'黒板'}).name + ' - 黒板';
   }
   function restore() {
     let idx = null; try { idx = JSON.parse(localStorage.getItem(INDEX) || 'null'); } catch (e) {}
